@@ -3,9 +3,9 @@
 Removes the screen blur that Survival Mode applies when your character is tired.
 The tiredness penalties themselves are untouched.
 
-**Status:** early release. The plugin has been checked structurally (it re-parses
-cleanly and only touches the four records listed below) but has had little
-in-game testing so far. Reports are welcome.
+**Status:** early release. Both plugins have been checked structurally (they re-parse
+cleanly and only touch the four records listed below). The vanilla Survival Mode
+plugin has not been tested in game yet. Reports are welcome.
 
 ## What it changes
 
@@ -25,21 +25,34 @@ Not changed: reduced magicka and stamina regeneration, reduced disease
 resistance, the skill reductions added by Survival Mode Improved, the tiredness
 messages, and the cold and hunger effects (including the cold screen frost).
 
+## Which file
+
+There are two plugins. Use one, not both.
+
+| Plugin | For |
+|---|---|
+| `No Exhaustion Blur.esp` | Setups with [Survival Mode Improved - SKSE](https://www.nexusmods.com/skyrimspecialedition/mods/78244) (built from version 1.6.6) |
+| `No Exhaustion Blur - Vanilla Survival Mode.esp` | Plain Creation Club Survival Mode, without Survival Mode Improved |
+
+Survival Mode Improved changes three of the four records, so its users need the
+first file; the vanilla file would undo those changes.
+
 ## Requirements
 
 - Skyrim Special Edition / Anniversary Edition with the Creation Club
   **Survival Mode** (`ccQDRSSE001-SurvivalMode.esl`)
-- [Survival Mode Improved - SKSE](https://www.nexusmods.com/skyrimspecialedition/mods/78244)
+- For `No Exhaustion Blur.esp` only: Survival Mode Improved - SKSE
   (`SurvivalModeImproved.esp`)
 
-Both are masters of the plugin, so the game will not load it without them.
+These are masters of the plugins, so the game will not load them without them.
 
 ## Install
 
-1. Copy `No Exhaustion Blur.esp` into your Skyrim `Data` folder, or install it
+1. Copy the plugin for your setup into your Skyrim `Data` folder, or install it
    with your mod manager.
-2. Enable it and make sure it loads after `SurvivalModeImproved.esp`. LOOT and
-   Vortex's automatic sorting do this on their own because of the masters.
+2. Enable it. With Survival Mode Improved, make sure it loads after
+   `SurvivalModeImproved.esp`; if it loads before, it does nothing. Check this
+   after installing, since a mod manager may not re-sort straight away.
 
 The plugin is light (ESL-flagged), so it does not use a full plugin slot.
 
@@ -61,11 +74,11 @@ The plugin is generated from your own game files, so nothing has to be taken on
 trust:
 
 ```bash
-python build.py "C:/Program Files (x86)/Steam/steamapps/common/Skyrim Special Edition/Data"
+python build.py "C:/Program Files (x86)/Steam/steamapps/common/Skyrim Special Edition/Data" all
 ```
 
-`build.py` reads the four records from Survival Mode and Survival Mode Improved,
-drops their `VMAD` (script) subrecord, and writes them into a new light plugin.
+`build.py` reads the four records from Survival Mode (and Survival Mode Improved
+for that variant), drops their `VMAD` (script) subrecord, and writes them into a new light plugin.
 It needs Python 3 and nothing else.
 
 ## Credits

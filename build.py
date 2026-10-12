@@ -1,6 +1,10 @@
-"""Build "No Exhaustion Blur.esp" from the plugins in a Skyrim SE Data folder.
+"""Build the "No Exhaustion Blur" plugins from the plugins in a Skyrim SE Data folder.
 
-Usage: python build.py "<path to Skyrim Special Edition/Data>"
+Usage: python build.py "<path to Skyrim Special Edition/Data>" [smi|vanilla|all]
+
+  smi      "No Exhaustion Blur.esp", for Survival Mode Improved - SKSE (default)
+  vanilla  "No Exhaustion Blur - Vanilla Survival Mode.esp", for plain Survival Mode
+  all      both
 
 The plugin overrides the four Survival Mode exhaustion "Imod" magic effects
 (stages 2-5) and drops their VMAD (script) subrecord, which is what applies the
@@ -11,17 +15,18 @@ import struct
 import sys
 import zlib
 
-OUT_NAME = "No Exhaustion Blur.esp"
 CC_SURVIVAL = "ccQDRSSE001-SurvivalMode.esl"
 SMI = "SurvivalModeImproved.esp"
-MASTERS = ["Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm",
-           "Dragonborn.esm", CC_SURVIVAL, SMI]
-# form ID -> plugin whose version of the record is the winning one to patch
-TARGETS = {
-    0x050008EF: CC_SURVIVAL,  # Survival_ExhaustionStage2ImodEffect
-    0x050008F0: SMI,          # Survival_ExhaustionStage3ImodEffect
-    0x050008F1: SMI,          # Survival_ExhaustionStage4ImodEffect
-    0x050008F2: SMI,          # Survival_ExhaustionStage5ImodEffect
+BASE_MASTERS = ["Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm",
+                "Dragonborn.esm", CC_SURVIVAL]
+# Survival_ExhaustionStage2..5ImodEffect
+FORM_IDS = [0x050008EF, 0x050008F0, 0x050008F1, 0x050008F2]
+# variant -> (output name, masters, form ID -> plugin whose record wins and gets patched)
+VARIANTS = {
+    "smi": ("No Exhaustion Blur.esp", BASE_MASTERS + [SMI],
+            {FORM_IDS[0]: CC_SURVIVAL, FORM_IDS[1]: SMI, FORM_IDS[2]: SMI, FORM_IDS[3]: SMI}),
+    "vanilla": ("No Exhaustion Blur - Vanilla Survival Mode.esp", BASE_MASTERS,
+                {formid: CC_SURVIVAL for formid in FORM_IDS}),
 }
 ESL_FLAG = 0x200
 COMPRESSED = 0x40000
@@ -68,16 +73,17 @@ def sub(tag, value):
     return tag + struct.pack("<H", len(value)) + value
 
 
-def build(data_dir):
-    parsed = {name: parse(os.path.join(data_dir, name)) for name in (CC_SURVIVAL, SMI)}
+def build(data_dir, variant):
+    _, all_masters, targets = VARIANTS[variant]
+    parsed = {name: parse(os.path.join(data_dir, name)) for name in set(targets.values())}
     # form IDs are copied verbatim, so the source plugins must share our master order
     for name, (masters, _) in parsed.items():
-        expected = MASTERS[:len(masters)]
+        expected = all_masters[:len(masters)]
         if [m.lower() for m in masters] != [m.lower() for m in expected]:
             sys.exit(f"{name} has unexpected masters: {masters}")
 
     patched = []
-    for formid, source in TARGETS.items():
+    for formid, source in targets.items():
         rec_type, _, flags, raw, data = next(
             r for r in parsed[source][1] if r[1] == formid and r[0] == b"MGEF")
         if flags & COMPRESSED:
@@ -91,16 +97,19 @@ def build(data_dir):
     header = sub(b"HEDR", struct.pack("<fII", 1.7, len(patched), 0x800))
     header += sub(b"CNAM", b"custom\0")
     header += sub(b"SNAM", b"Removes the exhaustion screen blur; penalties unchanged.\0")
-    for master in MASTERS:
+    for master in all_masters:
         header += sub(b"MAST", master.encode("latin1") + b"\0") + sub(b"DATA", bytes(8))
     tes4 = b"TES4" + struct.pack("<IIIIHH", len(header), ESL_FLAG, 0, 0, 44, 0) + header
     return tes4 + group
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    choice = sys.argv[2] if len(sys.argv) == 3 else "smi"
+    if len(sys.argv) not in (2, 3) or choice not in (*VARIANTS, "all"):
         sys.exit(__doc__)
-    plugin = build(sys.argv[1])
-    with open(OUT_NAME, "wb") as f:
-        f.write(plugin)
-    print(f"wrote {OUT_NAME} ({len(plugin)} bytes)")
+    for variant in (VARIANTS if choice == "all" else [choice]):
+        plugin = build(sys.argv[1], variant)
+        out_name = VARIANTS[variant][0]
+        with open(out_name, "wb") as f:
+            f.write(plugin)
+        print(f"wrote {out_name} ({len(plugin)} bytes)")
